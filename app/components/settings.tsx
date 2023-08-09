@@ -435,11 +435,13 @@ export function Settings() {
               type="text"
               value={config.localLLMUrl}
               placeholder="http://127.0.0.1:8888/"
-              onChange={(e) =>
-                updateConfig(
-                  (config) => (config.localLLMUrl = e.currentTarget.value),
-                )
-              }
+              onChange={(e) => {
+                if (e.currentTarget.value.trim() !== "") {
+                  updateConfig(
+                    (config) => (config.localLLMUrl = e.currentTarget.value),
+                  );
+                }
+              }}
             ></input>
           </ListItem>
         </List>
