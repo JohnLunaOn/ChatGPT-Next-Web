@@ -413,6 +413,37 @@ export function Settings() {
       </div>
       <div className={styles["settings"]}>
         <List>
+          <ListItem
+            title="Local LLM"
+            subTitle="Using Local LLM instead of OpenAI"
+          >
+            <input
+              type="checkbox"
+              checked={config.useLocalLLM}
+              onChange={(e) =>
+                updateConfig(
+                  (config) => (config.useLocalLLM = e.currentTarget.checked),
+                )
+              }
+            ></input>
+          </ListItem>
+          <ListItem
+            title={Locale.Settings.Endpoint.Title}
+            subTitle={Locale.Settings.Endpoint.SubTitle}
+          >
+            <input
+              type="text"
+              value={config.localLLMUrl}
+              placeholder="http://127.0.0.1:8888/"
+              onChange={(e) =>
+                updateConfig(
+                  (config) => (config.localLLMUrl = e.currentTarget.value),
+                )
+              }
+            ></input>
+          </ListItem>
+        </List>
+        <List>
           <ListItem title={Locale.Settings.Avatar}>
             <Popover
               onClose={() => setShowEmojiPicker(false)}

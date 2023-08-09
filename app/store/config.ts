@@ -50,6 +50,9 @@ export const DEFAULT_CONFIG = {
     enableInjectSystemPrompts: true,
     template: DEFAULT_INPUT_TEMPLATE,
   },
+
+  localLLMUrl: "http://127.0.0.1:8888",
+  useLocalLLM: false,
 };
 
 export type ChatConfig = typeof DEFAULT_CONFIG;
