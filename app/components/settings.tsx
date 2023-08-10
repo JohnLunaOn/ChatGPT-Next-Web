@@ -388,6 +388,11 @@ export function Settings() {
   const clientConfig = useMemo(() => getClientConfig(), []);
   const showAccessCode = enabledAccessControl && !clientConfig?.isApp;
 
+  const { localLLMUrl, username, charname } = useAppConfig();
+  const [localLLMUrlInput, setLocalLLMUrlInput] = useState(localLLMUrl);
+  const [usernameInput, setUsernameInput] = useState(username);
+  const [charnameInput, setCharnameInput] = useState(charname);
+
   return (
     <ErrorBoundary>
       <div className="window-header" data-tauri-drag-region>
@@ -433,13 +438,49 @@ export function Settings() {
           >
             <input
               type="text"
-              value={config.localLLMUrl}
-              placeholder="http://127.0.0.1:8888/"
-              onChange={(e) => {
-                if (e.currentTarget.value.trim() !== "") {
+              value={localLLMUrlInput}
+              placeholder="http://127.0.0.1:8080/"
+              onChange={(e) => setLocalLLMUrlInput(e.currentTarget.value)}
+              onBlur={() => {
+                if (localLLMUrlInput.trim()) {
                   updateConfig(
-                    (config) => (config.localLLMUrl = e.currentTarget.value),
+                    (config) => (config.localLLMUrl = localLLMUrlInput),
                   );
+                } else {
+                  setLocalLLMUrlInput(localLLMUrl);
+                }
+              }}
+            ></input>
+          </ListItem>
+          <ListItem title="Your Name" subTitle="User's name for local chatting">
+            <input
+              type="text"
+              value={usernameInput}
+              placeholder=""
+              onChange={(e) => setUsernameInput(e.currentTarget.value)}
+              onBlur={() => {
+                if (usernameInput.trim()) {
+                  updateConfig((config) => (config.username = usernameInput));
+                } else {
+                  setUsernameInput(username);
+                }
+              }}
+            ></input>
+          </ListItem>
+          <ListItem
+            title="Char Name"
+            subTitle="Characater's name for local chatting"
+          >
+            <input
+              type="text"
+              value={charnameInput}
+              placeholder=""
+              onChange={(e) => setCharnameInput(e.currentTarget.value)}
+              onBlur={() => {
+                if (charnameInput.trim()) {
+                  updateConfig((config) => (config.charname = charnameInput));
+                } else {
+                  setCharnameInput(charname);
                 }
               }}
             ></input>

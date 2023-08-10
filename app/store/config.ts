@@ -53,6 +53,8 @@ export const DEFAULT_CONFIG = {
 
   localLLMUrl: "http://127.0.0.1:8888",
   useLocalLLM: false,
+  username: "User",
+  charname: "Bot",
 };
 
 export type ChatConfig = typeof DEFAULT_CONFIG;
