@@ -82,6 +82,16 @@ export class ChatGPTApi implements LLMApi {
       ? llamaChatPath()
       : this.path(OpenaiPath.ChatPath);
 
+    if (!requestPayload) {
+      options.onError?.(new Error("Request payload is empty"));
+      return;
+    }
+
+    if (!chatPath) {
+      options.onError?.(new Error("Request path is empty"));
+      return;
+    }
+
     const shouldStream = !!options.config.stream;
     const controller = new AbortController();
     options.onController?.(controller);

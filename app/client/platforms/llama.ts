@@ -70,6 +70,7 @@ export interface LlamaRequestPayload {
   stop: string[];
   charname: string;
   username: string;
+  customUrl: string;
 }
 
 const LLAMA_API_CHAT_PATH = "/api/llama/completion"; // current server's api path
@@ -105,7 +106,7 @@ export function payload(options: ChatOptions): LlamaRequestPayload | null {
     messages.slice(0, 3).some((m) => m.role !== OPENAI_ROLES.SYSTEM)
   ) {
     console.error(
-      `{{${CHAR_DEFINITIONS.SYSTEM}}, ${CHAR_DEFINITIONS.DESCRIPTION}, ${CHAR_DEFINITIONS.FIRST_MESSAGE}} need to be set in the first 3 messages (temporary solution)`,
+      `{${CHAR_DEFINITIONS.SYSTEM}, ${CHAR_DEFINITIONS.DESCRIPTION}, ${CHAR_DEFINITIONS.FIRST_MESSAGE}} need to be set in the first 3 messages (temporary solution)`,
     );
     return null;
   }
@@ -161,5 +162,6 @@ export function payload(options: ChatOptions): LlamaRequestPayload | null {
     stop: defaultStops,
     charname: config.charname,
     username: config.username,
+    customUrl: config.llamaCppServerUrl,
   };
 }

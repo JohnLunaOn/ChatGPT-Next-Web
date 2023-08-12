@@ -443,13 +443,9 @@ export function Settings() {
               placeholder="http://127.0.0.1:8080/"
               onChange={(e) => setLocalLLMUrlInput(e.currentTarget.value)}
               onBlur={() => {
-                if (localLLMUrlInput.trim()) {
-                  updateConfig(
-                    (config) => (config.llamaCppServerUrl = localLLMUrlInput),
-                  );
-                } else {
-                  setLocalLLMUrlInput(localLLMUrl);
-                }
+                updateConfig(
+                  (config) => (config.llamaCppServerUrl = localLLMUrlInput),
+                );
               }}
             ></input>
           </ListItem>

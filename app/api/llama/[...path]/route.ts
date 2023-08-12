@@ -1,20 +1,25 @@
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../auth";
+import { getServerSideConfig } from "@/app/config/server";
 
 const LammaCppServerPath = {
   ChatPath: "completion",
   ModelInfoPath: "model.json",
 };
 const ALLOWD_PATH = new Set(Object.values(LammaCppServerPath));
-const LlamaCppServer_URL = "127.0.0.1";
 const DEFAULT_PROTOCOL = "https";
-const BASE_URL = process.env.LLAMA_CPP_SERVER_URL || LlamaCppServer_URL;
 
 async function requestLlamaCppServer(req: NextRequest, path: string) {
+  const serverConfig = getServerSideConfig();
   const controller = new AbortController();
   const authValue = req.headers.get("Authorization") ?? "";
-  let baseUrl = BASE_URL;
+  const BASE_URL = serverConfig.llamaCppServerUrl;
+  const body = await req.clone().json();
+  const customUrl = "customUrl" in body ? body.customUrl : "";
+  let baseUrl = serverConfig.enableClientLlamaServerUrl
+    ? customUrl || BASE_URL
+    : BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `${DEFAULT_PROTOCOL}://${baseUrl}`;
