@@ -1,7 +1,8 @@
 import { getClientConfig } from "../config/client";
 import { ACCESS_CODE_PREFIX } from "../constant";
-import { ChatMessage, ModelType, useAccessStore } from "../store";
+import { ChatMessage, ModelType, useAccessStore, useAppConfig } from "../store";
 import { ChatGPTApi } from "./platforms/openai";
+import { LlamaCppServerApi } from "./platforms/llama";
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
@@ -72,9 +73,15 @@ interface ChatProvider {
 
 export class ClientApi {
   public llm: LLMApi;
+  public llama: LLMApi;
 
   constructor() {
     this.llm = new ChatGPTApi();
+    this.llama = new LlamaCppServerApi();
+  }
+
+  llmapi(): LLMApi {
+    return useAppConfig.getState().useLlamaCppServer ? this.llama : this.llm;
   }
 
   config() {}

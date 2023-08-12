@@ -13,7 +13,6 @@ const DEFAULT_PROTOCOL = "https";
 async function requestLlamaCppServer(req: NextRequest, path: string) {
   const serverConfig = getServerSideConfig();
   const controller = new AbortController();
-  const authValue = req.headers.get("Authorization") ?? "";
   const BASE_URL = serverConfig.llamaCppServerUrl;
   const body = await req.clone().json();
   const customUrl = "customUrl" in body ? body.customUrl : "";
@@ -40,7 +39,6 @@ async function requestLlamaCppServer(req: NextRequest, path: string) {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
-      Authorization: authValue,
     },
     method: req.method,
     body: req.body,
@@ -57,6 +55,7 @@ async function requestLlamaCppServer(req: NextRequest, path: string) {
     return new Response(res.body, {
       status: res.status,
       statusText: res.statusText,
+      headers: res.headers,
     });
   } finally {
     clearTimeout(timeoutId);

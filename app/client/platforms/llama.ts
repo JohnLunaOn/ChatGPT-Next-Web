@@ -39,23 +39,16 @@ prompt = llamaCppConfig.template
 
 以下是已有的代码：
 */
+import { REQUEST_TIMEOUT_MS } from "@/app/constant";
+import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
 
-import { useAppConfig } from "@/app/store";
-import { ChatOptions } from "../api";
-
-export const OPENAI_ROLES: { [key: string]: string } = {
-  SYSTEM: "system",
-  USER: "user",
-  ASSISTANT: "assistant",
-};
-
-export const CHAR_DEFINITIONS: { [key: string]: string } = {
-  SYSTEM: "system",
-  DESCRIPTION: "description",
-  FIRST_MESSAGE: "first_message",
-  CHAR: "char",
-  USER: "user",
-};
+import { ChatOptions, getHeaders, LLMApi, LLMModel, LLMUsage } from "../api";
+import Locale from "../../locales";
+import {
+  EventStreamContentType,
+  fetchEventSource,
+} from "@fortaine/fetch-event-source";
+import { prettyObject } from "@/app/utils/format";
 
 export interface LlamaRequestPayload {
   prompt: string;
@@ -72,96 +65,257 @@ export interface LlamaRequestPayload {
   username: string;
   customUrl: string;
 }
+export const OPENAI_ROLES: { [key: string]: string } = {
+  SYSTEM: "system",
+  USER: "user",
+  ASSISTANT: "assistant",
+};
 
-const LLAMA_API_CHAT_PATH = "/api/llama/completion"; // current server's api path
-export function chatPath() {
-  return LLAMA_API_CHAT_PATH;
-}
+export const CHAR_DEFINITIONS: { [key: string]: string } = {
+  SYSTEM: "system",
+  DESCRIPTION: "description",
+  FIRST_MESSAGE: "first_message",
+  CHAR: "char",
+  USER: "user",
+};
 
-// Function to safely replace and trim values in the template
-function safeReplace(
-  prompt: string,
-  item: keyof typeof CHAR_DEFINITIONS,
-  value: string,
-): string {
-  const trimmedValue = value.trim();
-  if (!trimmedValue) {
-    console.warn(
-      `Warning: Replacement for {{${item}}} is empty after trimming.`,
-    );
-  }
-  return prompt.replace(`{{${CHAR_DEFINITIONS[item]}}}`, trimmedValue);
-}
+export class LlamaCppServerApi implements LLMApi {
+  private LLAMA_API_CHAT_PATH = "/api/llama/completion"; // current server's api path
 
-export function payload(options: ChatOptions): LlamaRequestPayload | null {
-  const config = useAppConfig.getState();
-  const stream = !!options.config?.stream;
-  const llamaCppConfig = config.llamaCppConfig;
-  let prompt = llamaCppConfig.template;
-
-  // Check messages array
-  const { messages } = options;
-  if (
-    messages.length < 3 ||
-    messages.slice(0, 3).some((m) => m.role !== OPENAI_ROLES.SYSTEM)
-  ) {
-    console.error(
-      `{${CHAR_DEFINITIONS.SYSTEM}, ${CHAR_DEFINITIONS.DESCRIPTION}, ${CHAR_DEFINITIONS.FIRST_MESSAGE}} need to be set in the first 3 messages (temporary solution)`,
-    );
-    return null;
+  chatPath() {
+    return this.LLAMA_API_CHAT_PATH;
   }
 
-  // Replacing system, description, first_message
-  prompt = safeReplace(prompt, CHAR_DEFINITIONS.SYSTEM, messages[0].content);
-  prompt = safeReplace(
-    prompt,
-    CHAR_DEFINITIONS.DESCRIPTION,
-    messages[1].content,
-  );
-  prompt = safeReplace(
-    prompt,
-    CHAR_DEFINITIONS.FIRST_MESSAGE,
-    messages[2].content,
-  );
+  extractMessage(res: any) {
+    return res.choices?.at(0)?.message?.content ?? "";
+  }
 
-  // Concatenate further messages
-  let inputString = "";
-  for (let i = 3; i < messages.length; i++) {
-    const message = messages[i];
-    if (message.role === OPENAI_ROLES.SYSTEM) continue;
-    if (message.role === OPENAI_ROLES.USER) {
-      inputString += `${config.username}: ${message.content.trim()}\n\n`;
-    } else if (message.role === OPENAI_ROLES.ASSISTANT) {
-      inputString += `${config.charname}: ${message.content.trim()}\n\n`;
+  safeReplace(
+    prompt: string,
+    item: keyof typeof CHAR_DEFINITIONS,
+    value: string,
+  ): string {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      console.warn(
+        `Warning: Replacement for {{${item}}} is empty after trimming.`,
+      );
+    }
+    return prompt.replace(`{{${CHAR_DEFINITIONS[item]}}}`, trimmedValue);
+  }
+
+  payload(options: ChatOptions): LlamaRequestPayload | null {
+    const config = useAppConfig.getState();
+    const stream = !!options.config?.stream;
+    const llamaCppConfig = config.llamaCppConfig;
+    let prompt = llamaCppConfig.template;
+
+    // Check messages array
+    const { messages } = options;
+    if (
+      messages.length < 3 ||
+      messages.slice(0, 3).some((m) => m.role !== OPENAI_ROLES.SYSTEM)
+    ) {
+      console.error(
+        `{${CHAR_DEFINITIONS.SYSTEM}, ${CHAR_DEFINITIONS.DESCRIPTION}, ${CHAR_DEFINITIONS.FIRST_MESSAGE}} need to be set in the first 3 messages (temporary solution)`,
+      );
+      return null;
+    }
+
+    // Replacing system, description, first_message
+    prompt = this.safeReplace(
+      prompt,
+      CHAR_DEFINITIONS.SYSTEM,
+      messages[0].content,
+    );
+    prompt = this.safeReplace(
+      prompt,
+      CHAR_DEFINITIONS.DESCRIPTION,
+      messages[1].content,
+    );
+    prompt = this.safeReplace(
+      prompt,
+      CHAR_DEFINITIONS.FIRST_MESSAGE,
+      messages[2].content,
+    );
+
+    // Concatenate further messages
+    let inputString = "";
+    for (let i = 3; i < messages.length; i++) {
+      const message = messages[i];
+      if (message.role === OPENAI_ROLES.SYSTEM) continue;
+      if (message.role === OPENAI_ROLES.USER) {
+        inputString += `${config.username}: ${message.content.trim()}\n\n`;
+      } else if (message.role === OPENAI_ROLES.ASSISTANT) {
+        inputString += `${config.charname}: ${message.content.trim()}\n\n`;
+      }
+    }
+
+    if (messages[messages.length - 1].role === OPENAI_ROLES.ASSISTANT) {
+      console.warn("The last message's role should not be assistant");
+    }
+
+    inputString = `${inputString.trim()}\n\n${config.charname}:`;
+    prompt = this.safeReplace(prompt, CHAR_DEFINITIONS.CHAR, config.charname);
+    prompt = this.safeReplace(prompt, CHAR_DEFINITIONS.USER, config.username);
+
+    const defaultStops = [
+      "</s>",
+      `\n${config.charname}:`,
+      `\n${config.username}:`,
+    ];
+    return {
+      prompt,
+      stream,
+      temperature: llamaCppConfig.temperature,
+      eps: llamaCppConfig.eps,
+      top_p: llamaCppConfig.top_p,
+      top_k: llamaCppConfig.top_k,
+      repeat_penalty: llamaCppConfig.repeat_penalty,
+      repeat_last_n: llamaCppConfig.repeat_last_n,
+      n_predict: llamaCppConfig.max_tokens,
+      stop: defaultStops,
+      charname: config.charname,
+      username: config.username,
+      customUrl: config.llamaCppServerUrl,
+    };
+  }
+
+  async chat(options: ChatOptions) {
+    const config = useAppConfig.getState();
+    const requestPayload = this.payload(options);
+    const chatPath = this.chatPath();
+
+    if (!requestPayload) {
+      options.onError?.(new Error("Request payload is empty"));
+      return;
+    }
+
+    if (!chatPath) {
+      options.onError?.(new Error("Request path is empty"));
+      return;
+    }
+
+    const shouldStream = !!options.config.stream;
+    const controller = new AbortController();
+    options.onController?.(controller);
+
+    try {
+      const chatPayload = {
+        method: "POST",
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+        headers: getHeaders(),
+      };
+
+      // make a fetch request
+      const requestTimeoutId = setTimeout(
+        () => controller.abort(),
+        REQUEST_TIMEOUT_MS,
+      );
+
+      if (shouldStream) {
+        let responseText = "";
+        let finished = false;
+
+        const finish = () => {
+          if (!finished) {
+            options.onFinish(responseText);
+            finished = true;
+          }
+        };
+
+        controller.signal.onabort = finish;
+
+        fetchEventSource(chatPath, {
+          ...chatPayload,
+          async onopen(res) {
+            clearTimeout(requestTimeoutId);
+            const contentType = res.headers.get("content-type");
+            console.log(
+              "[OpenAI] request response content type: ",
+              contentType,
+            );
+
+            if (contentType?.startsWith("text/plain")) {
+              responseText = await res.clone().text();
+              return finish();
+            }
+
+            if (
+              !res.ok ||
+              !res.headers
+                .get("content-type")
+                ?.startsWith(EventStreamContentType) ||
+              res.status !== 200
+            ) {
+              const responseTexts = [responseText];
+              let extraInfo = await res.clone().text();
+              try {
+                const resJson = await res.clone().json();
+                extraInfo = prettyObject(resJson);
+              } catch {}
+
+              if (res.status === 401) {
+                responseTexts.push(Locale.Error.Unauthorized);
+              }
+
+              if (extraInfo) {
+                responseTexts.push(extraInfo);
+              }
+
+              responseText = responseTexts.join("\n\n");
+
+              return finish();
+            }
+          },
+          onmessage(msg) {
+            if (msg.data === "[DONE]" || finished) {
+              return finish();
+            }
+            const text = msg.data;
+            try {
+              const json = JSON.parse(text);
+              const delta = json.choices[0].delta.content;
+              if (delta) {
+                responseText += delta;
+                options.onUpdate?.(responseText, delta);
+              }
+            } catch (e) {
+              console.error("[Request] parse error", text, msg);
+            }
+          },
+          onclose() {
+            finish();
+          },
+          onerror(e) {
+            options.onError?.(e);
+            throw e;
+          },
+          openWhenHidden: true,
+        });
+      } else {
+        const res = await fetch(chatPath, chatPayload);
+        clearTimeout(requestTimeoutId);
+
+        const resJson = await res.json();
+        const message = this.extractMessage(resJson);
+        options.onFinish(message);
+      }
+    } catch (e) {
+      console.log("[Request] failed to make a chat request", e);
+      options.onError?.(e as Error);
     }
   }
 
-  if (messages[messages.length - 1].role === OPENAI_ROLES.ASSISTANT) {
-    console.warn("The last message's role should not be assistant");
+  async usage() {
+    return {
+      used: 0,
+      total: 0,
+    } as LLMUsage;
   }
 
-  inputString = `${inputString.trim()}\n\n${config.charname}:`;
-  prompt = safeReplace(prompt, CHAR_DEFINITIONS.CHAR, config.charname);
-  prompt = safeReplace(prompt, CHAR_DEFINITIONS.USER, config.username);
-
-  const defaultStops = [
-    "</s>",
-    `\n${config.charname}:`,
-    `\n${config.username}:`,
-  ];
-  return {
-    prompt,
-    stream,
-    temperature: llamaCppConfig.temperature,
-    eps: llamaCppConfig.eps,
-    top_p: llamaCppConfig.top_p,
-    top_k: llamaCppConfig.top_k,
-    repeat_penalty: llamaCppConfig.repeat_penalty,
-    repeat_last_n: llamaCppConfig.repeat_last_n,
-    n_predict: llamaCppConfig.max_tokens,
-    stop: defaultStops,
-    charname: config.charname,
-    username: config.username,
-    customUrl: config.llamaCppServerUrl,
-  };
+  async models(): Promise<LLMModel[]> {
+    return [];
+  }
 }

@@ -310,7 +310,7 @@ export const useChatStore = create<ChatStore>()(
         });
 
         // make request
-        api.llm.chat({
+        api.llmapi().chat({
           messages: sendMessages,
           config: { ...modelConfig, stream: true },
           onUpdate(message) {
@@ -496,7 +496,7 @@ export const useChatStore = create<ChatStore>()(
               content: Locale.Store.Prompt.Topic,
             }),
           );
-          api.llm.chat({
+          api.llmapi().chat({
             messages: topicMessages,
             config: {
               model: "gpt-3.5-turbo",
@@ -545,7 +545,7 @@ export const useChatStore = create<ChatStore>()(
           historyMsgLength > modelConfig.compressMessageLengthThreshold &&
           modelConfig.sendMemory
         ) {
-          api.llm.chat({
+          api.llmapi().chat({
             messages: toBeSummarizedMsgs.concat(
               createMessage({
                 role: "system",

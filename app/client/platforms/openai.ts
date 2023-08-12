@@ -7,7 +7,6 @@ import {
 import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
 
 import { ChatOptions, getHeaders, LLMApi, LLMModel, LLMUsage } from "../api";
-import { payload as llamaPayload, chatPath as llamaChatPath } from "./llama";
 import Locale from "../../locales";
 import {
   EventStreamContentType,
@@ -45,7 +44,7 @@ export class ChatGPTApi implements LLMApi {
     return res.choices?.at(0)?.message?.content ?? "";
   }
 
-  payload(options: ChatOptions) {
+  async chat(options: ChatOptions) {
     const messages = options.messages.map((v) => ({
       role: v.role,
       content: v.content,
@@ -70,33 +69,13 @@ export class ChatGPTApi implements LLMApi {
     };
 
     console.log("[Request] openai payload: ", requestPayload);
-    return requestPayload;
-  }
-
-  async chat(options: ChatOptions) {
-    const config = useAppConfig.getState();
-    const requestPayload = config.useLlamaCppServer
-      ? llamaPayload(options)
-      : this.payload(options);
-    const chatPath = config.useLlamaCppServer
-      ? llamaChatPath()
-      : this.path(OpenaiPath.ChatPath);
-
-    if (!requestPayload) {
-      options.onError?.(new Error("Request payload is empty"));
-      return;
-    }
-
-    if (!chatPath) {
-      options.onError?.(new Error("Request path is empty"));
-      return;
-    }
 
     const shouldStream = !!options.config.stream;
     const controller = new AbortController();
     options.onController?.(controller);
 
     try {
+      const chatPath = this.path(OpenaiPath.ChatPath);
       const chatPayload = {
         method: "POST",
         body: JSON.stringify(requestPayload),
