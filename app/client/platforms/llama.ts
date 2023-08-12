@@ -90,18 +90,15 @@ export class LlamaCppServerApi implements LLMApi {
     return res.choices?.at(0)?.message?.content ?? "";
   }
 
-  safeReplace(
-    prompt: string,
-    item: keyof typeof CHAR_DEFINITIONS,
-    value: string,
-  ): string {
+  safeReplace(prompt: string, item: string, value: string): string {
+    const key = `{{${item}}}`;
     const trimmedValue = value.trim();
     if (!trimmedValue) {
       console.warn(
         `Warning: Replacement for {{${item}}} is empty after trimming.`,
       );
     }
-    return prompt.replace(`{{${CHAR_DEFINITIONS[item]}}}`, trimmedValue);
+    return prompt.replaceAll(key, trimmedValue);
   }
 
   payload(options: ChatOptions): LlamaRequestPayload | null {
@@ -138,6 +135,8 @@ export class LlamaCppServerApi implements LLMApi {
       CHAR_DEFINITIONS.FIRST_MESSAGE,
       messages[2].content,
     );
+
+    console.log("prompt: ", prompt);
 
     // Concatenate further messages
     let inputString = "";
@@ -208,6 +207,9 @@ export class LlamaCppServerApi implements LLMApi {
         headers: getHeaders(),
       };
 
+      console.log("Request payload:");
+      console.log(prettyObject(chatPayload));
+
       // make a fetch request
       const requestTimeoutId = setTimeout(
         () => controller.abort(),
@@ -233,7 +235,7 @@ export class LlamaCppServerApi implements LLMApi {
             clearTimeout(requestTimeoutId);
             const contentType = res.headers.get("content-type");
             console.log(
-              "[OpenAI] request response content type: ",
+              "[LlamaCpp Server API] request response content type: ",
               contentType,
             );
 
@@ -269,20 +271,27 @@ export class LlamaCppServerApi implements LLMApi {
               return finish();
             }
           },
-          onmessage(msg) {
-            if (msg.data === "[DONE]" || finished) {
+          onmessage: (msg) => {
+            if (finished) {
               return finish();
             }
             const text = msg.data;
             try {
               const json = JSON.parse(text);
-              const delta = json.choices[0].delta.content;
-              if (delta) {
-                responseText += delta;
-                options.onUpdate?.(responseText, delta);
+              const content = json.content;
+              if (content) {
+                responseText += content;
+                options.onUpdate?.(responseText, content);
+              }
+
+              // Check stop and log generation info
+              if ("stop" in json && json.stop) {
+                console.log("Generation completed, info:");
+                this.extractAndPrintGenerationInfo(json);
+                return finish();
               }
             } catch (e) {
-              console.error("[Request] parse error", text, msg);
+              console.error("[LlamaCpp Server Request] parse error", text, msg);
             }
           },
           onclose() {
@@ -303,9 +312,35 @@ export class LlamaCppServerApi implements LLMApi {
         options.onFinish(message);
       }
     } catch (e) {
-      console.log("[Request] failed to make a chat request", e);
+      console.log("[LlamaCpp Server API] failed to make a chat request", e);
       options.onError?.(e as Error);
     }
+  }
+
+  extractAndPrintGenerationInfo(json: any): string[] {
+    const fields = [
+      "tokens_evaluated",
+      "tokens_predicted",
+      "tokens_cached",
+      "stopped_eos",
+      "stopped_limit",
+      "stopped_word",
+      "stopping_word",
+      "timings",
+    ];
+
+    const keyValuePairs: string[] = [];
+    for (const key of fields) {
+      if (key in json) {
+        if (typeof json[key] === "object" && json[key] !== null) {
+          keyValuePairs.push(`${key}: ${JSON.stringify(json[key], null, 2)}`);
+        } else {
+          keyValuePairs.push(`${key}: ${json[key]}`);
+        }
+      }
+    }
+    console.log(keyValuePairs.join(", "));
+    return keyValuePairs;
   }
 
   async usage() {
