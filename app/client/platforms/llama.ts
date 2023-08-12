@@ -65,16 +65,25 @@ export interface LlamaRequestPayload {
   username: string;
   customUrl: string;
 }
+
 export const OPENAI_ROLES: { [key: string]: string } = {
   SYSTEM: "system",
   USER: "user",
   ASSISTANT: "assistant",
 };
 
-export const CHAR_DEFINITIONS: { [key: string]: string } = {
+type CharKey =
+  | "SYSTEM"
+  | "DESCRIPTION"
+  | "FIRST_MESSAGE"
+  | "INPUT"
+  | "CHAR"
+  | "USER";
+export const CHAR_DEFINITIONS: Record<CharKey, string> = {
   SYSTEM: "system",
   DESCRIPTION: "description",
   FIRST_MESSAGE: "first_message",
+  INPUT: "input",
   CHAR: "char",
   USER: "user",
 };
@@ -119,6 +128,7 @@ export class LlamaCppServerApi implements LLMApi {
       return null;
     }
 
+    // TODO: TEMP SOLUTION
     // Replacing system, description, first_message
     prompt = this.safeReplace(
       prompt,
@@ -155,6 +165,8 @@ export class LlamaCppServerApi implements LLMApi {
     }
 
     inputString = `${inputString.trim()}\n\n${config.charname}:`;
+    prompt = this.safeReplace(prompt, CHAR_DEFINITIONS.INPUT, inputString);
+
     prompt = this.safeReplace(prompt, CHAR_DEFINITIONS.CHAR, config.charname);
     prompt = this.safeReplace(prompt, CHAR_DEFINITIONS.USER, config.username);
 
@@ -172,7 +184,7 @@ export class LlamaCppServerApi implements LLMApi {
       top_k: llamaCppConfig.top_k,
       repeat_penalty: llamaCppConfig.repeat_penalty,
       repeat_last_n: llamaCppConfig.repeat_last_n,
-      n_predict: llamaCppConfig.max_tokens,
+      n_predict: llamaCppConfig.n_predict,
       stop: defaultStops,
       charname: config.charname,
       username: config.username,
