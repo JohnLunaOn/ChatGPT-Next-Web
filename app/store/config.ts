@@ -51,10 +51,20 @@ export const DEFAULT_CONFIG = {
     template: DEFAULT_INPUT_TEMPLATE,
   },
 
-  localLLMUrl: "http://127.0.0.1:8888",
-  useLocalLLM: false,
+  llamaCppServerUrl: "http://127.0.0.1:8080",
+  useLlamaCppServer: false,
   username: "User",
   charname: "Bot",
+  llamaCppConfig: {
+    temperature: 0.5,
+    top_p: 0.8,
+    top_k: 40,
+    repeat_penalty: 1.1,
+    repeat_last_n: 256,
+    max_tokens: 300,
+    eps: 1e-6,
+    template: "{{system}}\n\n{{description}}\n\n{{first_message}}\n\n{{input}}",
+  },
 };
 
 export type ChatConfig = typeof DEFAULT_CONFIG;

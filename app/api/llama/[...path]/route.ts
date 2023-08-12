@@ -75,7 +75,7 @@ async function handle(
     return NextResponse.json(
       {
         error: true,
-        msg: "you are not allowed to request " + subpath,
+        msg: "[Llama Route] you are not allowed to request " + subpath,
       },
       {
         status: 403,
@@ -94,7 +94,7 @@ async function handle(
     const response = await requestLlamaCppServer(req, subpath);
     return response;
   } catch (e) {
-    console.error("[Llama] ", e);
+    console.error("[Llama Route] ", e);
     return NextResponse.json(prettyObject(e));
   }
 }

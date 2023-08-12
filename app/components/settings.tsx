@@ -388,7 +388,7 @@ export function Settings() {
   const clientConfig = useMemo(() => getClientConfig(), []);
   const showAccessCode = enabledAccessControl && !clientConfig?.isApp;
 
-  const { localLLMUrl, username, charname } = useAppConfig();
+  const { llamaCppServerUrl: localLLMUrl, username, charname } = useAppConfig();
   const [localLLMUrlInput, setLocalLLMUrlInput] = useState(localLLMUrl);
   const [usernameInput, setUsernameInput] = useState(username);
   const [charnameInput, setCharnameInput] = useState(charname);
@@ -419,15 +419,16 @@ export function Settings() {
       <div className={styles["settings"]}>
         <List>
           <ListItem
-            title="Local LLM"
-            subTitle="Using Local LLM instead of OpenAI"
+            title="LlamaCpp Server"
+            subTitle="Using LlamaCpp Server instead of OpenAI"
           >
             <input
               type="checkbox"
-              checked={config.useLocalLLM}
+              checked={config.useLlamaCppServer}
               onChange={(e) =>
                 updateConfig(
-                  (config) => (config.useLocalLLM = e.currentTarget.checked),
+                  (config) =>
+                    (config.useLlamaCppServer = e.currentTarget.checked),
                 )
               }
             ></input>
@@ -444,7 +445,7 @@ export function Settings() {
               onBlur={() => {
                 if (localLLMUrlInput.trim()) {
                   updateConfig(
-                    (config) => (config.localLLMUrl = localLLMUrlInput),
+                    (config) => (config.llamaCppServerUrl = localLLMUrlInput),
                   );
                 } else {
                   setLocalLLMUrlInput(localLLMUrl);
@@ -452,7 +453,7 @@ export function Settings() {
               }}
             ></input>
           </ListItem>
-          <ListItem title="Your Name" subTitle="User's name for local chatting">
+          <ListItem title="Your Name" subTitle="User's name for chatting">
             <input
               type="text"
               value={usernameInput}
@@ -467,10 +468,7 @@ export function Settings() {
               }}
             ></input>
           </ListItem>
-          <ListItem
-            title="Char Name"
-            subTitle="Characater's name for local chatting"
-          >
+          <ListItem title="Char Name" subTitle="Characater's name for chatting">
             <input
               type="text"
               value={charnameInput}

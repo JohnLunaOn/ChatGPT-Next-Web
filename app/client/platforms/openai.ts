@@ -7,6 +7,7 @@ import {
 import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
 
 import { ChatOptions, getHeaders, LLMApi, LLMModel, LLMUsage } from "../api";
+import { payload as llamaPayload, chatPath as llamaChatPath } from "./llama";
 import Locale from "../../locales";
 import {
   EventStreamContentType,
@@ -27,10 +28,7 @@ export class ChatGPTApi implements LLMApi {
   private disableListModels = true;
 
   path(path: string): string {
-    let config = useAppConfig.getState();
-    let openaiUrl = config.useLocalLLM
-      ? config.localLLMUrl
-      : useAccessStore.getState().openaiUrl;
+    let openaiUrl = useAccessStore.getState().openaiUrl;
     if (openaiUrl.length === 0) {
       openaiUrl = DEFAULT_API_HOST;
     }
@@ -47,7 +45,7 @@ export class ChatGPTApi implements LLMApi {
     return res.choices?.at(0)?.message?.content ?? "";
   }
 
-  async chat(options: ChatOptions) {
+  payload(options: ChatOptions) {
     const messages = options.messages.map((v) => ({
       role: v.role,
       content: v.content,
@@ -72,13 +70,23 @@ export class ChatGPTApi implements LLMApi {
     };
 
     console.log("[Request] openai payload: ", requestPayload);
+    return requestPayload;
+  }
+
+  async chat(options: ChatOptions) {
+    const config = useAppConfig.getState();
+    const requestPayload = config.useLlamaCppServer
+      ? llamaPayload(options)
+      : this.payload(options);
+    const chatPath = config.useLlamaCppServer
+      ? llamaChatPath()
+      : this.path(OpenaiPath.ChatPath);
 
     const shouldStream = !!options.config.stream;
     const controller = new AbortController();
     options.onController?.(controller);
 
     try {
-      const chatPath = this.path(OpenaiPath.ChatPath);
       const chatPayload = {
         method: "POST",
         body: JSON.stringify(requestPayload),
