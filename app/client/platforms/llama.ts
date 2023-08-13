@@ -146,8 +146,6 @@ export class LlamaCppServerApi implements LLMApi {
       messages[2].content,
     );
 
-    console.log("prompt: ", prompt);
-
     // Concatenate further messages
     let inputString = "";
     for (let i = 3; i < messages.length; i++) {

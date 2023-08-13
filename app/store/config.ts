@@ -51,7 +51,7 @@ export const DEFAULT_CONFIG = {
     template: DEFAULT_INPUT_TEMPLATE,
   },
 
-  llamaCppServerUrl: "http://127.0.0.1:8080",
+  llamaCppServerUrl: "",
   useLlamaCppServer: false,
   username: "User",
   charname: "Bot",
